@@ -16,4 +16,4 @@ def dashboard():
 @login_required
 @role_required("admin")
 def admin_area():
-    return "Admin page only"
+    return render_template("admin/admin.html")
