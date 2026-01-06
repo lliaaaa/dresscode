@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from .models import User
+from .models import User, UserActivity
 from . import db
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -40,6 +40,10 @@ def login():
         if user and user.check_password(password):
             session["user_id"] = user.id
             session["role"] = user.role
+            # Log login activity
+            activity = UserActivity(user_id=user.id, action='login')
+            db.session.add(activity)
+            db.session.commit()
             return redirect(url_for("main.dashboard"))
 
         flash("Invalid email or password", "danger")
@@ -49,6 +53,11 @@ def login():
 
 @bp.route("/logout")
 def logout():
+    # Log logout activity before clearing session
+    if 'user_id' in session:
+        activity = UserActivity(user_id=session['user_id'], action='logout')
+        db.session.add(activity)
+        db.session.commit()
     session.clear()
     flash("Logged out successfully.", "info")
     return redirect(url_for("auth.login"))

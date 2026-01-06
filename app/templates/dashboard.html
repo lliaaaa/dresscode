@@ -9,5 +9,20 @@
     </a>
 </div>
 
-<p class="lead">You are now logged in.</p>
+<p class="lead">You are now logged in as {{ session.role }}</p>
+
+<div class="mt-4">
+    {% if session.role == 'admin' %}
+    <a href="{{ url_for('main.admin_area') }}" class="btn btn-warning me-2">
+        Admin Panel
+    </a>
+    <a href="{{ url_for('main.activities') }}" class="btn btn-primary">
+        View My Activities
+    </a>
+    {% else %}
+    <a href="{{ url_for('main.activities') }}" class="btn btn-primary">
+        View My Activities
+    </a>
+    {% endif %}
+</div>
 {% endblock %}

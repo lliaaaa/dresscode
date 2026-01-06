@@ -20,3 +20,13 @@ class User(db.Model):
         return check_password_hash(self.password_hash, pw)
     def __repr__(self):
         return f"<Users {self.name}>"
+
+class UserActivity(db.Model):
+    __tablename__ = "user_activities"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    action = db.Column(db.String(50), nullable=False)  # 'login' or 'logout'
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('activities', lazy=True))
