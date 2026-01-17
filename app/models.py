@@ -5,13 +5,14 @@ from flask_login import UserMixin
 
 db = SQLAlchemy()
 
+# ------------------ User Table ------------------
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
     user_id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # admin, guard
 
     created_students = db.relationship("Student", backref="creator", lazy=True)
     logged_violations = db.relationship("Violation", backref="admin", lazy=True)
@@ -53,6 +54,7 @@ class Student(db.Model):
     def __repr__(self):
         return f"<Student {self.student_id} - {self.first_name} {self.last_name}>"
 
+
 # ------------------ Violation Table ------------------
 class Violation(db.Model):
     __tablename__ = "violations"
@@ -60,7 +62,7 @@ class Violation(db.Model):
     violation_id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(20), db.ForeignKey("students.student_id"), nullable=False)
     violation_type = db.Column(db.String(200), nullable=False)
-    reason = db.Column(db.String(500), nullable=True)   # ✅ add reason
+    reason = db.Column(db.String(500), nullable=True)
     violation_date = db.Column(db.DateTime, default=datetime.utcnow)
     admin_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
 
