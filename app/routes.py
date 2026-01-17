@@ -1,106 +1,133 @@
-from flask import Blueprint, render_template
-from .decorators import login_required, role_required
-from .models import User
-from flask import session, request, redirect, url_for, flash
-from .models import db, Student, Violation
+from flask import Blueprint, render_template, redirect, url_for, request, abort
+from flask_login import login_required, current_user, login_user, logout_user
+from models import db, User, Student, Violation
+from datetime import datetime
 
 bp = Blueprint("main", __name__)
 
-@bp.route("/")
-def index():
-    return render_template("home.html")
+# ---------------- Login/Logout ----------------
+@bp.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form['email']
+        password = request.form['password']
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for("main.dashboard"))
+    return render_template("login.html")
 
-@bp.route('/admin', methods=['GET'])
-def admin_dashboard():
-    query = Violation.query
+@bp.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("main.login"))
 
-    search = request.args.get('search')
-    if search:
-        query = query.filter(
-            Violation.student_name.ilike(f"%{search}%")
-        )
+# ---------------- Dashboard ----------------
+@bp.route("/dashboard")
+@login_required
+def dashboard():
+    if current_user.is_admin():
+        total_students = Student.query.count()
+        total_violations = Violation.query.count()
+        recent_violations = Violation.query.order_by(Violation.violation_date.desc()).limit(5).all()
+        return render_template("dashboard.html",
+                               total_students=total_students,
+                               total_violations=total_violations,
+                               recent_violations=recent_violations)
+    elif current_user.is_guard():
+        return redirect(url_for("main.add_violation"))
+    else:
+        abort(403)
 
-    course = request.args.get('course')
-    if course:
-        query = query.filter_by(course=course)
+# ---------------- Student CRUD (Admin + Guard Add Student) ----------------
+@bp.route("/students")
+@login_required
+def student_list():
+    if not current_user.is_admin():
+        abort(403)
+    students = Student.query.all()
+    return render_template("student_list.html", students=students)
 
-    year = request.args.get('year')
-    if year:
-        query = query.filter_by(year_level=year)
-
-    violations = query.all()
-    return render_template(
-        "dashboard.html",
-        violations=violations,
-        students=Student.query.all()
-    )
-
-# ---------------- ADD STUDENT ----------------
-@bp.route("/students/add", methods=["POST"])
+@bp.route("/add_student", methods=["GET", "POST"])
 @login_required
 def add_student():
-    student = Student(
-        student_id=request.form["student_id"],
-        first_name=request.form["first_name"],
-        last_name=request.form["last_name"],
-        program=request.form["program"],
-        year_level=request.form["year_level"],
-        created_by=current_user.user_id
-    )
-    db.session.add(student)
-    db.session.commit()
-    return redirect(url_for("bp.admin_dashboard"))
+    if not (current_user.is_admin() or current_user.is_guard()):
+        abort(403)
+    if request.method == "POST":
+        student_id = request.form['student_id']
+        first_name = request.form['first_name']
+        last_name = request.form['last_name']
+        program = request.form['program']
+        year_level = request.form['year_level']
 
-# ---------------- BULK ADD STUDENTS ----------------
-@bp.route("/students/bulk-add", methods=["POST"])
-@login_required
-def bulk_add_students():
-    file = request.files["csv_file"]
-    stream = io.StringIO(file.stream.read().decode("UTF8"))
-    reader = csv.DictReader(stream)
-
-    for row in reader:
-        student = Student(
-            student_id=row["student_id"],
-            first_name=row["first_name"],
-            last_name=row["last_name"],
-            program=row["program"],
-            year_level=row["year_level"],
-            created_by=current_user.user_id
-        )
+        student = Student(student_id=student_id,
+                          first_name=first_name,
+                          last_name=last_name,
+                          program=program,
+                          year_level=year_level,
+                          created_by=current_user.user_id)
         db.session.add(student)
+        db.session.commit()
+        return redirect(url_for("main.student_list"))
+    return render_template("add_student.html")
 
+@bp.route("/edit_student/<student_id>", methods=["GET", "POST"])
+@login_required
+def edit_student(student_id):
+    if not current_user.is_admin():
+        abort(403)
+    student = Student.query.get_or_404(student_id)
+    if request.method == "POST":
+        student.first_name = request.form['first_name']
+        student.last_name = request.form['last_name']
+        student.program = request.form['program']
+        student.year_level = request.form['year_level']
+        db.session.commit()
+        return redirect(url_for("main.student_list"))
+    return render_template("edit_student.html", student=student)
+
+@bp.route("/delete_student/<student_id>")
+@login_required
+def delete_student(student_id):
+    if not current_user.is_admin():
+        abort(403)
+    student = Student.query.get_or_404(student_id)
+    db.session.delete(student)
     db.session.commit()
-    return redirect(url_for("bp.admin_dashboard"))
+    return redirect(url_for("main.student_list"))
 
-# ---------------- ADD VIOLATION ----------------
-@bp.route("/violations/add", methods=["POST"])
+# ---------------- Add Violation (Guard) ----------------
+@bp.route("/add_violation", methods=["GET", "POST"])
 @login_required
 def add_violation():
-    violation = Violation(
-        student_id=request.form["student_id"],
-        violation_type=request.form["violation_type"],
-        reason=request.form.get("reason"),
-        violation_date=datetime.utcnow(),
-        admin_id=current_user.user_id
-    )
-    db.session.add(violation)
-    db.session.commit()
-    return redirect(url_for("bp.admin_dashboard"))
+    if not current_user.is_guard():
+        abort(403)
 
-# ---------------- DELETE VIOLATION ----------------
-@bp.route("/violations/delete/<int:violation_id>", methods=["POST"])
-@login_required
-def delete_violation(violation_id):
-    violation = Violation.query.get_or_404(violation_id)
-    db.session.delete(violation)
-    db.session.commit()
-    return redirect(url_for("bp.admin_dashboard"))
+    student = None
+    student_id = request.args.get('student_id')
+    if student_id:
+        student = Student.query.filter_by(student_id=student_id).first()
 
-# ---------------- CLEAR ALL VIOLATIONS ----------------
-@bp.route("/violations/clear", methods=["POST"])
+    if request.method == "POST":
+        student_id = request.form['student_id']
+        violation_type = request.form['violation_type']
+        reason = request.form['reason']
+
+        violation = Violation(student_id=student_id,
+                              violation_type=violation_type,
+                              reason=reason,
+                              admin_id=current_user.user_id,
+                              violation_date=datetime.utcnow())
+        db.session.add(violation)
+        db.session.commit()
+        return redirect(url_for("main.add_violation", student_id=student_id))
+
+    return render_template("add_violation.html", student=student)
+
+# ---------------- View Violations ----------------
+@bp.route("/violations")
 @login_required
-def clear_violations():
-    Violation.query.delete()
-    db.session.commit()
-    return redirect(url_for("bp.admin_dashboard"))
+def view_violations():
+    violations = Violation.query.order_by(Violation.violation_date.desc()).all()
+    return render_template("violations.html", violations=violations)
