@@ -1,143 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}Admin Dashboard{% endblock %}
 
 {% block content %}
-<style>
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: Arial, sans-serif;
-}
+<h1>Admin Dashboard</h1>
+<p>Welcome, {{ current_user.email }}</p>
 
-body {
-    background: #f4f6f9;
-}
-
-.layout {
-    display: flex;
-}
-
-/* Sidebar */
-.sidebar {
-    width: 220px;
-    height: 100vh;
-    background: #1e293b;
-    color: white;
-    padding: 20px;
-}
-
-.sidebar h2 {
-    text-align: center;
-    margin-bottom: 30px;
-}
-
-.sidebar ul {
-    list-style: none;
-}
-
-.sidebar ul li {
-    margin: 15px 0;
-}
-
-.sidebar ul li a {
-    color: white;
-    text-decoration: none;
-    padding: 10px;
-    display: block;
-    border-radius: 5px;
-}
-
-.sidebar ul li a:hover {
-    background: #334155;
-}
-
-/* Content */
-.content {
-    flex: 1;
-    padding: 20px;
-}
-
-.page-header {
-    margin-bottom: 20px;
-}
-
-.page-header h1 {
-    font-size: 28px;
-    color: #1e293b;
-}
-
-.page-header p {
-    color: #555;
-}
-
-/* Cards */
-.cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 30px;
-}
-
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.card h3 {
-    font-size: 16px;
-    color: #555;
-}
-
-.card p {
-    font-size: 28px;
-    font-weight: bold;
-    color: #1e293b;
-    margin-top: 10px;
-}
-
-/* Table */
-.table-section {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.table-section h2 {
-    margin-bottom: 15px;
-    color: #1e293b;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-table thead {
-    background: #1e293b;
-    color: white;
-}
-
-table th, table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-}
-
-table tr:hover {
-    background: #f1f5f9;
-}
-</style>
-<header class="page-header">
-    <h1>Dashboard</h1>
-    <p>Welcome, {{ current_user.email }} ({{ current_user.role }})</p>
-</header>
-
-<section class="cards">
+<!-- Cards -->
+<div class="cards">
     <div class="card">
         <h3>Total Students</h3>
         <p>{{ total_students }}</p>
@@ -147,36 +17,38 @@ table tr:hover {
         <h3>Total Violations</h3>
         <p>{{ total_violations }}</p>
     </div>
+</div>
 
-    <div class="card">
-        <h3>Total Guards</h3>
-        <p>{{ total_guards }}</p>
-    </div>
-</section>
+<!-- Action Buttons -->
+<div class="actions">
+    <a href="{{ url_for('add_student') }}" class="btn">Add Student</a>
+    <a href="{{ url_for('student_list') }}" class="btn">View Students</a>
+</div>
 
-<section class="table-section">
-    <h2>Recent Violations</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Student ID</th>
-                <th>Violation</th>
-                <th>Reason</th>
-                <th>Date</th>
-                <th>Logged By</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for v in recent_violations %}
-            <tr>
-                <td>{{ v.student_id }}</td>
-                <td>{{ v.violation_type }}</td>
-                <td>{{ v.reason }}</td>
-                <td>{{ v.violation_date.strftime('%Y-%m-%d') }}</td>
-                <td>{{ v.admin.email }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</section>
+<!-- Recent Violations Table -->
+<h2>Recent Violations</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Student ID</th>
+            <th>Student Name</th>
+            <th>Violation</th>
+            <th>Reason</th>
+            <th>Date</th>
+            <th>Logged By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for v in recent_violations %}
+        <tr>
+            <td>{{ v.student_id }}</td>
+            <td>{{ v.student.first_name }} {{ v.student.last_name }}</td>
+            <td>{{ v.violation_type }}</td>
+            <td>{{ v.reason }}</td>
+            <td>{{ v.violation_date.strftime('%Y-%m-%d') }}</td>
+            <td>{{ v.admin.email }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% endblock %}
