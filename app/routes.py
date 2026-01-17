@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template
 from .decorators import login_required, role_required
-from .models import UserActivity, User
+from .models import User
 from flask import session, request, redirect, url_for, flash
-from . import db
+from .models import db, Student, Violation
 
 bp = Blueprint("main", __name__)
 
@@ -10,44 +10,97 @@ bp = Blueprint("main", __name__)
 def index():
     return render_template("home.html")
 
-@bp.route("/dashboard")
+@bp.route('/admin', methods=['GET'])
+def admin_dashboard():
+    query = Violation.query
+
+    search = request.args.get('search')
+    if search:
+        query = query.filter(
+            Violation.student_name.ilike(f"%{search}%")
+        )
+
+    course = request.args.get('course')
+    if course:
+        query = query.filter_by(course=course)
+
+    year = request.args.get('year')
+    if year:
+        query = query.filter_by(year_level=year)
+
+    violations = query.all()
+    return render_template(
+        "dashboard.html",
+        violations=violations,
+        students=Student.query.all()
+    )
+
+# ---------------- ADD STUDENT ----------------
+@bp.route("/students/add", methods=["POST"])
 @login_required
-def dashboard():
-    return render_template("dashboard.html")
+def add_student():
+    student = Student(
+        student_id=request.form["student_id"],
+        first_name=request.form["first_name"],
+        last_name=request.form["last_name"],
+        program=request.form["program"],
+        year_level=request.form["year_level"],
+        created_by=current_user.user_id
+    )
+    db.session.add(student)
+    db.session.commit()
+    return redirect(url_for("bp.admin_dashboard"))
 
-@bp.route("/profile")
+# ---------------- BULK ADD STUDENTS ----------------
+@bp.route("/students/bulk-add", methods=["POST"])
 @login_required
-def profile():
-    user_id = session['user_id']
-    user = User.query.get(user_id)
-    return render_template("profile.html", user=user)
+def bulk_add_students():
+    file = request.files["csv_file"]
+    stream = io.StringIO(file.stream.read().decode("UTF8"))
+    reader = csv.DictReader(stream)
 
-@bp.route("/activities")
+    for row in reader:
+        student = Student(
+            student_id=row["student_id"],
+            first_name=row["first_name"],
+            last_name=row["last_name"],
+            program=row["program"],
+            year_level=row["year_level"],
+            created_by=current_user.user_id
+        )
+        db.session.add(student)
+
+    db.session.commit()
+    return redirect(url_for("bp.admin_dashboard"))
+
+# ---------------- ADD VIOLATION ----------------
+@bp.route("/violations/add", methods=["POST"])
 @login_required
-def activities():
-    user_id = session['user_id']
-    user_activities = UserActivity.query.filter_by(user_id=user_id).order_by(UserActivity.timestamp.desc()).all()
-    return render_template("activities.html", activities=user_activities)
+def add_violation():
+    violation = Violation(
+        student_id=request.form["student_id"],
+        violation_type=request.form["violation_type"],
+        reason=request.form.get("reason"),
+        violation_date=datetime.utcnow(),
+        admin_id=current_user.user_id
+    )
+    db.session.add(violation)
+    db.session.commit()
+    return redirect(url_for("bp.admin_dashboard"))
 
-@bp.route("/admin", methods=["GET", "POST"])
+# ---------------- DELETE VIOLATION ----------------
+@bp.route("/violations/delete/<int:violation_id>", methods=["POST"])
 @login_required
-@role_required("admin")
-def admin_area():
-    if request.method == "POST":
-        email = request.form["email"].lower()
-        password = request.form["password"]
-        role = request.form["role"]
+def delete_violation(violation_id):
+    violation = Violation.query.get_or_404(violation_id)
+    db.session.delete(violation)
+    db.session.commit()
+    return redirect(url_for("bp.admin_dashboard"))
 
-        if User.query.filter_by(email=email).first():
-            flash("Email already exists.", "warning")
-        else:
-            user = User(email=email, role=role)
-            user.set_password(password)
-            db.session.add(user)
-            db.session.commit()
-            flash("User created successfully!", "success")
-
-        return redirect(url_for("main.admin_area"))
-
-    users = User.query.all()
-    return render_template("admin/admin.html", users=users)
+# ---------------- CLEAR ALL VIOLATIONS ----------------
+@bp.route("/violations/clear", methods=["POST"])
+@login_required
+def clear_violations():
+    Violation.query.delete()
+    db.session.commit()
+    return redirect(url_for("bp.admin_dashboard"))

@@ -17,11 +17,12 @@ def create_app():
     with app.app_context():
         db.create_all()
 
-        # Create default admin user if it doesn't exist
-        if not User.query.filter_by(role='admin').first():
+        if not User.query.first():
             admin = User(email="admin@site.com", role="admin")
-            admin.set_password("AdminPass123")
-            db.session.add(admin)
+            admin.set_password("12345")
+            guard = User(email="guard@site.com", role="guard")
+            guard.set_password("12345")
+            db.session.add_all([admin, guard])
             db.session.commit()
 
     from .auth import bp as auth_bp
