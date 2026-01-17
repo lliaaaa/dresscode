@@ -1,28 +1,23 @@
 <!DOCTYPE html>
+<html>
 <html lang="en">
 <head>
+    <title>Flask CRUD with PostgreSQL</title>
     <meta charset="UTF-8">
     <title>{% block title %}Dashboard{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
+<body class="bg-light">
+<div class="container mt-5">
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for msg in messages %}
+                <div class="alert alert-success">{{ msg }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
 <body>
-
-    <div class="layout">
-        <aside class="sidebar">
-            <h2>Campus System</h2>
-            <ul>
-                <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
-                <li><a href="#">Students</a></li>
-                <li><a href="#">Violations</a></li>
-                <li><a href="#">Users</a></li>
-                <li><a href="{{ url_for('logout') }}">Logout</a></li>
-            </ul>
-        </aside>
-
-        <main class="content">
-            {% block content %}{% endblock %}
-        </main>
-    </div>
-
+    {% block content %}{% endblock %}
 </body>
+</html>
 </html>

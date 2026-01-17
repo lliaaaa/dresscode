@@ -40,7 +40,7 @@ def login():
         if user and user.check_password(password):
             session["user_id"] = user.user_id
             session["role"] = user.role
-            return redirect(url_for("main.admin_dashboard"))
+            return redirect(url_for("main.dashboard"))
 
         flash("Invalid email or password", "danger")
 

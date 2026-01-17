@@ -1,9 +1,13 @@
-from flask import Blueprint, render_template, redirect, url_for, request, abort
+from flask import Blueprint, render_template, redirect, url_for, request, abort, jsonify
 from flask_login import login_required, current_user, login_user, logout_user
-from models import db, User, Student, Violation
+from .models import db, User, Student, Violation
 from datetime import datetime
 
 bp = Blueprint("main", __name__)
+
+@bp.route('/')
+def index():
+    return render_template("home.html")
 
 # ---------------- Login/Logout ----------------
 @bp.route("/login", methods=["GET", "POST"])
@@ -31,10 +35,12 @@ def dashboard():
         total_students = Student.query.count()
         total_violations = Violation.query.count()
         recent_violations = Violation.query.order_by(Violation.violation_date.desc()).limit(5).all()
+        students = Student.query.all()
         return render_template("dashboard.html",
                                total_students=total_students,
                                total_violations=total_violations,
-                               recent_violations=recent_violations)
+                               recent_violations=recent_violations,
+                               students=students)
     elif current_user.is_guard():
         return redirect(url_for("main.add_violation"))
     else:
@@ -124,6 +130,37 @@ def add_violation():
         return redirect(url_for("main.add_violation", student_id=student_id))
 
     return render_template("add_violation.html", student=student)
+
+# ---------------- Add Student AJAX ----------------
+@bp.route("/add_student_ajax", methods=["POST"])
+@login_required
+def add_student_ajax():
+    if not (current_user.is_admin() or current_user.is_guard()):
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+
+    data = request.get_json()
+    student_id = data.get('student_id')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    program = data.get('program')
+    year_level = data.get('year_level')
+
+    if not all([student_id, first_name, last_name, program, year_level]):
+        return jsonify({"success": False, "message": "All fields are required"}), 400
+
+    if Student.query.filter_by(student_id=student_id).first():
+        return jsonify({"success": False, "message": "Student ID already exists"}), 400
+
+    student = Student(student_id=student_id,
+                      first_name=first_name,
+                      last_name=last_name,
+                      program=program,
+                      year_level=year_level,
+                      created_by=current_user.user_id)
+    db.session.add(student)
+    db.session.commit()
+
+    return jsonify({"success": True, "message": "Student added successfully"})
 
 # ---------------- View Violations ----------------
 @bp.route("/violations")
